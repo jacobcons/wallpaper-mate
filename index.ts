@@ -1,24 +1,26 @@
-import { Command, InvalidArgumentError } from 'commander';
+import { Command, InvalidArgumentError, Option } from 'commander';
 import { createWriteStream } from 'fs';
 import fetch from 'node-fetch';
 import { extname } from 'path';
-import { setWallpaper } from 'wallpaper';
+import { getWallpaper, setWallpaper } from 'wallpaper';
+import { getResolution, Resolution } from 'get-screen-resolution';
+
 const program = new Command();
 
 program
   .option(
     '-q, --queries <strings...>',
-    "List of query terms to search for wallpapers under e.g. '-q space nature' (if not supplied => it'll search under all wallpapers)",
+    "List of query terms to search for wallpapers under e.g. -q space nature (if not supplied => it'll search under all wallpapers)",
   )
   .option(
-    '-i, --interval <HH:MM:SS>',
-    "Time interval between updating wallpaper e.g. '-i 00:30:00' (if not supplied => it'll update wallpaper immediately just once)",
-    (interval: string): number => {
-      const regex = /^([01]?[0-9]|2[0-3]):([0-5]?[0-9]):([0-5]?[0-9])$/;
-      const match = interval.match(regex);
+    '-i, --interval <hours:minutes:seconds>',
+    "Time interval between updating wallpaper e.g. -i 00:30:00 (if not supplied => it'll update wallpaper immediately just once)",
+    (value: string): number => {
+      const regex = /^(\d+):(\d+):(\d+)$/;
+      const match = value.match(regex);
       if (!match) {
         throw new InvalidArgumentError(
-          'Interval must be of format HH:mm:ss. Hours must be an integer between 0 and 23, minutes an integer between 0 and 59, and seconds an integer between 0 and 59',
+          'Interval must be of format hours:minutes:seconds where each component is an integer e.g. 12:62:101',
         );
       }
 
@@ -32,36 +34,56 @@ program
         hours * MILLISECONDS_IN_HOUR
       );
     },
+  )
+  .option(
+    '-r --resolution <widthxheight>',
+    "Minimum resolution of the wallpaper e.g. -r 1920x1080 (if not supplied => default to your screen's resolution)",
+    (value: string): Resolution => {
+      const regex = /^(\d+)x(\d+)$/;
+      const match = value.match(regex);
+      if (!match) {
+        throw new InvalidArgumentError(
+          'Resolution must be of the format widthxheight where each component is an integer e.g. 1920x1080',
+        );
+      }
+      const [_, width, height] = match.map((group) => parseInt(group));
+      return { width, height };
+    },
   );
 
 program.parse();
 
-const { queries = [''], interval } = program.opts();
+const { queries = [''], interval, resolution } = program.opts();
+
+let width, height;
+try {
+  ({ width, height } = resolution || (await getResolution()));
+} catch (err) {
+  throw new Error(
+    "Unable to get your screen's resolution. Please supply one with the -r option",
+  );
+}
 
 function randomChoice<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)];
 }
 
 if (!interval) {
-  const imageUrlPromises = queries.map((q: string) =>
-    fetch(
-      `https://wallhaven.cc/api/v1/search?q=${q}&sorting=random&atleast=1920x1080`,
-    )
-      .then((res) => res.json())
-      .then((res: any) => res.data[0].path),
+  const q = randomChoice<string>(queries);
+  const wallpapersResponse = await fetch(
+    `https://wallhaven.cc/api/v1/search?q=${q}&sorting=random&atleast=${width}x${height}`,
   );
-  const imageUrls = await Promise.all(imageUrlPromises);
-  const imageUrl = randomChoice<string>(imageUrls);
+  const wallpapersJson: any = await wallpapersResponse.json();
+  const imageUrl = wallpapersJson.data[0].path;
 
-  const res = await fetch(imageUrl);
-  if (!res.body) {
+  const imageResponse = await fetch(imageUrl);
+  if (!imageResponse.body) {
     throw new Error('Failed to fetch image');
   }
-
-  const wallPaperPath = `./wallpaper${extname(imageUrl)}`;
-  const fileStream = createWriteStream(wallPaperPath);
-  res.body.pipe(fileStream);
+  const wallpaperPath = `./wallpaper${extname(imageUrl)}`;
+  const fileStream = createWriteStream(wallpaperPath);
+  imageResponse.body.pipe(fileStream);
   fileStream.on('finish', async () => {
-    await setWallpaper(wallPaperPath);
+    await setWallpaper(wallpaperPath);
   });
 }

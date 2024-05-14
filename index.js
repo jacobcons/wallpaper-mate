@@ -3,14 +3,15 @@ import { createWriteStream } from 'fs';
 import fetch from 'node-fetch';
 import { extname } from 'path';
 import { setWallpaper } from 'wallpaper';
+import { getResolution } from 'get-screen-resolution';
 const program = new Command();
 program
-    .option('-q, --queries <strings...>', "List of query terms to search for wallpapers under e.g. '-q space nature' (if not supplied => it'll search under all wallpapers)")
-    .option('-i, --interval <HH:MM:SS>', "Time interval between updating wallpaper e.g. '-i 00:30:00' (if not supplied => it'll update wallpaper immediately just once)", (interval) => {
-    const regex = /^([01]?[0-9]|2[0-3]):([0-5]?[0-9]):([0-5]?[0-9])$/;
-    const match = interval.match(regex);
+    .option('-q, --queries <strings...>', "List of query terms to search for wallpapers under e.g. -q space nature (if not supplied => it'll search under all wallpapers)")
+    .option('-i, --interval <hours:minutes:seconds>', "Time interval between updating wallpaper e.g. -i 00:30:00 (if not supplied => it'll update wallpaper immediately just once)", (value) => {
+    const regex = /^(\d+):(\d+):(\d+)$/;
+    const match = value.match(regex);
     if (!match) {
-        throw new InvalidArgumentError('Interval must be of format HH:mm:ss. Hours must be an integer between 0 and 23, minutes an integer between 0 and 59, and seconds an integer between 0 and 59');
+        throw new InvalidArgumentError('Interval must be of format hours:minutes:seconds where each component is an integer e.g. 12:62:101');
     }
     let [_, hours, minutes, seconds] = match.map((group) => parseInt(group));
     const MILLISECONDS_IN_SECOND = 1000;
@@ -19,26 +20,41 @@ program
     return (seconds * MILLISECONDS_IN_SECOND +
         minutes * MILLISECONDS_IN_MINUTE +
         hours * MILLISECONDS_IN_HOUR);
+})
+    .option('-r --resolution <widthxheight>', "Minimum resolution of the wallpaper e.g. -r 1920x1080 (if not supplied => default to your screen's resolution)", (value) => {
+    const regex = /^(\d+)x(\d+)$/;
+    const match = value.match(regex);
+    if (!match) {
+        throw new InvalidArgumentError('Resolution must be of the format widthxheight where each component is an integer e.g. 1920x1080');
+    }
+    const [_, width, height] = match.map((group) => parseInt(group));
+    return { width, height };
 });
 program.parse();
-const { queries = [''], interval } = program.opts();
+const { queries = [''], interval, resolution } = program.opts();
+let width, height;
+try {
+    ({ width, height } = resolution || (await getResolution()));
+}
+catch (err) {
+    throw new Error("Unable to get your screen's resolution. Please supply one with the -r option");
+}
 function randomChoice(array) {
     return array[Math.floor(Math.random() * array.length)];
 }
 if (!interval) {
-    const imageUrlPromises = queries.map((q) => fetch(`https://wallhaven.cc/api/v1/search?q=${q}&sorting=random&atleast=1920x1080`)
-        .then((res) => res.json())
-        .then((res) => res.data[0].path));
-    const imageUrls = await Promise.all(imageUrlPromises);
-    const imageUrl = randomChoice(imageUrls);
-    const res = await fetch(imageUrl);
-    if (!res.ok || !res.body) {
+    const q = randomChoice(queries);
+    const wallpapersResponse = await fetch(`https://wallhaven.cc/api/v1/search?q=${q}&sorting=random&atleast=${width}x${height}`);
+    const wallpapersJson = await wallpapersResponse.json();
+    const imageUrl = wallpapersJson.data[0].path;
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.body) {
         throw new Error('Failed to fetch image');
     }
-    const wallPaperPath = `./wallpaper${extname(imageUrl)}`;
-    const fileStream = createWriteStream(wallPaperPath);
-    res.body.pipe(fileStream);
+    const wallpaperPath = `./wallpaper${extname(imageUrl)}`;
+    const fileStream = createWriteStream(wallpaperPath);
+    imageResponse.body.pipe(fileStream);
     fileStream.on('finish', async () => {
-        await setWallpaper(wallPaperPath);
+        await setWallpaper(wallpaperPath);
     });
 }
