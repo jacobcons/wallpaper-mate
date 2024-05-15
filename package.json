@@ -1,7 +1,7 @@
 {
   "name": "wallpaper-mate",
   "version": "1.0.0",
-  "description": "CLI tool used to fetch and set wallpapers",
+  "description": "CLI tool used to fetch random wallpapers and set your desktop background to them",
   "main": "index.ts",
   "type": "module",
   "bin": {
@@ -13,6 +13,7 @@
     "build": "tsc",
     "start": "node index.js"
   },
+  "repository": "jacobcons/wallpaper-mate",
   "keywords": ["cli", "wallpaper", "desktop", "background"],
   "author": "",
   "license": "ISC",
