@@ -1,15 +1,19 @@
 {
   "name": "wallpaper-mate",
   "version": "1.0.0",
-  "description": "",
+  "description": "CLI tool used to fetch and set wallpapers",
   "main": "index.ts",
   "type": "module",
+  "bin": {
+    "wallpaper-mate": "./index.js",
+    "wpmate": "./index.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "start": "node index.js"
   },
-  "keywords": [],
+  "keywords": ["cli", "wallpaper", "desktop", "background"],
   "author": "",
   "license": "ISC",
   "devDependencies": {
