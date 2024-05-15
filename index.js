@@ -95,11 +95,13 @@ async function main() {
             return errorAndExit("Unable to get your screen's resolution. Please supply one with the -r option e.g. -r 1920 1080");
         }
     }
-    // if no interval is specified => update the wallpaper just once
     if (!interval) {
+        // no interval option => update the wallpaper just once
         await fetchAndSetWallpaper(queries, resolution);
     }
     else {
+        // interval option => update wallpaper immediately and then again on repeat after each interval has passed
+        await fetchAndSetWallpaper(queries, resolution);
         setInterval(async () => {
             await fetchAndSetWallpaper(queries, resolution);
         }, interval);
@@ -134,7 +136,7 @@ async function fetchAndSetWallpaper(queries, resolution) {
     const totalPages = firstPageJson.meta.last_page;
     const totalWallpapers = firstPageJson.meta.total;
     if (totalWallpapers === 0) {
-        return errorAndExit('No wallpapers found matching with your query');
+        return errorAndExit('No wallpapers found matching your query');
     }
     // get a random page => get random wallpaper => get its image url
     const randomPageResponse = await fetch(`https://wallhaven.cc/api/v1/search?q=${q}&page=${randomInt(totalPages, 1)}&atleast=${resolution.width}x${resolution.height}`);

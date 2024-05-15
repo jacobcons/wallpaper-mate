@@ -120,10 +120,12 @@ async function main() {
     }
   }
 
-  // if no interval is specified => update the wallpaper just once
   if (!interval) {
+    // no interval option => update the wallpaper just once
     await fetchAndSetWallpaper(queries, resolution);
   } else {
+    // interval option => update wallpaper immediately and then again on repeat after each interval has passed
+    await fetchAndSetWallpaper(queries, resolution);
     setInterval(async () => {
       await fetchAndSetWallpaper(queries, resolution);
     }, interval);
@@ -171,7 +173,7 @@ async function fetchAndSetWallpaper(queries: string[], resolution: Resolution) {
   const totalPages = firstPageJson.meta.last_page;
   const totalWallpapers = firstPageJson.meta.total;
   if (totalWallpapers === 0) {
-    return errorAndExit('No wallpapers found matching with your query');
+    return errorAndExit('No wallpapers found matching your query');
   }
 
   // get a random page => get random wallpaper => get its image url
