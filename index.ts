@@ -1,10 +1,11 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { createWriteStream, existsSync, readFileSync, writeFileSync } from 'fs';
-import fetch from 'node-fetch';
 import { extname } from 'path';
+import fetch from 'node-fetch';
 import { getWallpaper, setWallpaper } from 'wallpaper';
 import { getResolution, Resolution } from 'get-screen-resolution';
+import { appendFileSync } from 'node:fs';
 
 await main();
 
@@ -114,7 +115,7 @@ async function main() {
       resolution = fetchedResolution;
     } catch (err) {
       return errorAndExit(
-        "unable to get your screen's resolution. Please supply one with the -r option e.g. -r 1920x1080",
+        "Unable to get your screen's resolution. Please supply one with the -r option e.g. -r 1920 1080",
       );
     }
   }
@@ -129,7 +130,7 @@ async function main() {
   }
 }
 
-// ensure array consists only of non-negative integers and is of desiredLength => if not error
+// ensure array consists only of non-negative integers and is of desiredLength => otherwise error
 function validateNonNegativeIntegerArray(
   values: number[],
   desiredLength: number,
@@ -144,35 +145,60 @@ function validateNonNegativeIntegerArray(
 }
 
 function errorAndExit(msg: string): void {
-  console.error(`error: ${msg}`);
+  console.error(`Error: ${msg}`);
   process.exit(1);
 }
 
-function randomChoice<T>(array: T[]): T {
-  return array[Math.floor(Math.random() * array.length)];
+// generate random integer between max and min inclusive
+function randomInt(max: number, min: number = 0): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function randomChoice<T>(array: T[]): T {
+  return array[randomInt(array.length - 1)];
+}
+
+// fetch wallpaper with at least the given resolution, using one of the given query terms at random => set desktop background to that wallpaper
 async function fetchAndSetWallpaper(queries: string[], resolution: Resolution) {
-  // get the url of a wallpaper chosen from one the given query terms
   const q = randomChoice<string>(queries);
-  const wallpapersResponse = await fetch(
-    `https://wallhaven.cc/api/v1/search?q=${q}&sorting=random&atleast=${resolution.width}x${resolution.height}`,
+
+  // get the total number of pages
+  const firstPageResponse = await fetch(
+    `https://wallhaven.cc/api/v1/search?q=${q}&atleast=${resolution.width}x${resolution.height}`,
   );
-  const wallpapersJson: any = await wallpapersResponse.json();
-  const imageUrl = wallpapersJson.data[0]?.path;
-  if (!imageUrl) {
-    return errorAndExit('No images found with your query');
+  checkTooManyRequestsResponse(firstPageResponse);
+  const firstPageJson = (await firstPageResponse.json()) as any;
+  const totalPages = firstPageJson.meta.last_page;
+  const totalWallpapers = firstPageJson.meta.total;
+  if (totalWallpapers === 0) {
+    return errorAndExit('No wallpapers found matching with your query');
   }
 
-  // get the binary data of the image at said url => save it to disk => set desktop wallpaper using it
-  const imageResponse = await fetch(imageUrl);
-  if (!imageResponse.body) {
-    return errorAndExit('Failed to fetch image');
-  }
+  // get a random page => get random wallpaper => get its image url
+  const randomPageResponse = await fetch(
+    `https://wallhaven.cc/api/v1/search?q=${q}&page=${randomInt(totalPages, 1)}&atleast=${resolution.width}x${resolution.height}`,
+  );
+  checkTooManyRequestsResponse(randomPageResponse);
+  const randomPageJson = (await randomPageResponse.json()) as any;
+  const wallpapers = randomPageJson.data;
+  const imageUrl = randomChoice<any>(wallpapers)?.path;
+
+  // download the image to disk from its url => set desktop wallpaper using it
+  const imageResponse = (await fetch(imageUrl)) as any;
+  checkTooManyRequestsResponse(imageResponse);
   const wallpaperPath = `./wallpaper${extname(imageUrl)}`;
   const fileStream = createWriteStream(wallpaperPath);
   imageResponse.body.pipe(fileStream);
   fileStream.on('finish', async () => {
     await setWallpaper(wallpaperPath);
   });
+}
+
+// if response indicates too many requests have been made => display error and exit
+function checkTooManyRequestsResponse(res: any) {
+  if (res.status === 429) {
+    return errorAndExit(
+      'API rate limit reached (around 45 per minute), please try running again later.',
+    );
+  }
 }

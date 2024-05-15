@@ -1,8 +1,8 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { createWriteStream, existsSync, readFileSync, writeFileSync } from 'fs';
-import fetch from 'node-fetch';
 import { extname } from 'path';
+import fetch from 'node-fetch';
 import { setWallpaper } from 'wallpaper';
 import { getResolution } from 'get-screen-resolution';
 await main();
@@ -92,7 +92,7 @@ async function main() {
             resolution = fetchedResolution;
         }
         catch (err) {
-            return errorAndExit("unable to get your screen's resolution. Please supply one with the -r option e.g. -r 1920x1080");
+            return errorAndExit("Unable to get your screen's resolution. Please supply one with the -r option e.g. -r 1920 1080");
         }
     }
     // if no interval is specified => update the wallpaper just once
@@ -105,7 +105,7 @@ async function main() {
         }, interval);
     }
 }
-// ensure array consists only of non-negative integers and is of desiredLength => if not error
+// ensure array consists only of non-negative integers and is of desiredLength => otherwise error
 function validateNonNegativeIntegerArray(values, desiredLength, errorMsg) {
     if (values.length !== desiredLength ||
         values.some((value) => !Number.isInteger(value) || value < 0)) {
@@ -113,31 +113,48 @@ function validateNonNegativeIntegerArray(values, desiredLength, errorMsg) {
     }
 }
 function errorAndExit(msg) {
-    console.error(`error: ${msg}`);
+    console.error(`Error: ${msg}`);
     process.exit(1);
 }
-function randomChoice(array) {
-    return array[Math.floor(Math.random() * array.length)];
+// generate random integer between max and min inclusive
+function randomInt(max, min = 0) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+function randomChoice(array) {
+    return array[randomInt(array.length - 1)];
+}
+// fetch wallpaper with at least the given resolution, using one of the given query terms at random => set desktop background to that wallpaper
 async function fetchAndSetWallpaper(queries, resolution) {
     var _a;
-    // get the url of a wallpaper chosen from one the given query terms
     const q = randomChoice(queries);
-    const wallpapersResponse = await fetch(`https://wallhaven.cc/api/v1/search?q=${q}&sorting=random&atleast=${resolution.width}x${resolution.height}`);
-    const wallpapersJson = await wallpapersResponse.json();
-    const imageUrl = (_a = wallpapersJson.data[0]) === null || _a === void 0 ? void 0 : _a.path;
-    if (!imageUrl) {
-        return errorAndExit('No images found with your query');
+    // get the total number of pages
+    const firstPageResponse = await fetch(`https://wallhaven.cc/api/v1/search?q=${q}&atleast=${resolution.width}x${resolution.height}`);
+    checkTooManyRequestsResponse(firstPageResponse);
+    const firstPageJson = (await firstPageResponse.json());
+    const totalPages = firstPageJson.meta.last_page;
+    const totalWallpapers = firstPageJson.meta.total;
+    if (totalWallpapers === 0) {
+        return errorAndExit('No wallpapers found matching with your query');
     }
-    // get the binary data of the image at said url => save it to disk => set desktop wallpaper using it
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.body) {
-        return errorAndExit('Failed to fetch image');
-    }
+    // get a random page => get random wallpaper => get its image url
+    const randomPageResponse = await fetch(`https://wallhaven.cc/api/v1/search?q=${q}&page=${randomInt(totalPages, 1)}&atleast=${resolution.width}x${resolution.height}`);
+    checkTooManyRequestsResponse(randomPageResponse);
+    const randomPageJson = (await randomPageResponse.json());
+    const wallpapers = randomPageJson.data;
+    const imageUrl = (_a = randomChoice(wallpapers)) === null || _a === void 0 ? void 0 : _a.path;
+    // download the image to disk from its url => set desktop wallpaper using it
+    const imageResponse = (await fetch(imageUrl));
+    checkTooManyRequestsResponse(imageResponse);
     const wallpaperPath = `./wallpaper${extname(imageUrl)}`;
     const fileStream = createWriteStream(wallpaperPath);
     imageResponse.body.pipe(fileStream);
     fileStream.on('finish', async () => {
         await setWallpaper(wallpaperPath);
     });
+}
+// if response indicates too many requests have been made => display error and exit
+function checkTooManyRequestsResponse(res) {
+    if (res.status === 429) {
+        return errorAndExit('API rate limit reached (around 45 per minute), please try running again later.');
+    }
 }
