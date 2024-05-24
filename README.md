@@ -1,8 +1,10 @@
 # Wallpaper Mate
 
-> Wallpaper Mate is a CLI tool that allows you to update your desktop background with a fresh, random new wallpaper. 
-You can specify the search terms you want to look under e.g. space, nature. Additionally, you can refresh your wallpaper
-based on an interval you specify.
+> Wallpaper Mate is a CLI tool that sets your desktop background to a random wallpaper fetched from a pool of over a million images.
+You can specify search terms to look under (e.g. space, cowboy), and set it to run at intervals. It also
+fetches your screen's resolution to ensure the best quality images.
+
+
 
 Works on
 - Windows
