@@ -1,6 +1,6 @@
 {
   "name": "wallpaper-mate",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "CLI tool used to fetch random wallpapers and set your desktop background to them",
   "main": "index.ts",
   "type": "module",
