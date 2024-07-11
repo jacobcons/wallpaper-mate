@@ -20,7 +20,7 @@ npm i -g wallpaper-mate
 ## Usage
 
 ```
-wp-mate [-q <queries...>] [-i <hours> <minute> <seconds>] [-r <width> <height>]
+wpmate [-q <queries...>] [-i <hours> <minute> <seconds>] [-r <width> <height>]
                                                                                                                                                                 
 Options:                                                                                                                                                        
   -q, --queries     List of query terms to search for wallpapers under, <queries...> e.g. space nature            [array] [default: search under all wallpapers]
@@ -30,9 +30,9 @@ Options:
   -v, --version     Show version number                                                                                                                [boolean]
 
 Examples:
-  wp-mate                                   Set desktop to a random wallpaper
-  wp-mate -q space                          Set desktop to a random wallpaper searching under the term 'space'
-  wp-mate -q nature cowboy                  Set desktop to a random wallpaper searching under the terms 'nature' and 'cowboy'
-  wp-mate -q "animal crossing" -i 0 10 0    Set desktop to a random wallpaper searching under the term 'animal crossing' every 10 minutes
-  wp-mate -i 1 0 0 -r 3840 2160             Set desktop to a random wallpaper every hour, only fetch wallpapers with a resolution that is at least 3840x2160 
+  wpmate                                   Set desktop to a random wallpaper
+  wpmate -q space                          Set desktop to a random wallpaper searching under the term 'space'
+  wpmate -q nature cowboy                  Set desktop to a random wallpaper searching under the terms 'nature' and 'cowboy'
+  wpmate -q "animal crossing" -i 0 10 0    Set desktop to a random wallpaper searching under the term 'animal crossing' every 10 minutes
+  wpmate -i 1 0 0 -r 3840 2160             Set desktop to a random wallpaper every hour, only fetch wallpapers with a resolution that is at least 3840x2160 
 ```
