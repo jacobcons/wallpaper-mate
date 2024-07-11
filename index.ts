@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { createWriteStream, existsSync, readFileSync, writeFileSync } from 'fs';
-import { extname } from 'path';
+import {
+  createWriteStream,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+} from 'fs';
+import { extname, join } from 'path';
 import fetch from 'node-fetch';
 import { getWallpaper, setWallpaper } from 'wallpaper';
 import { getResolution, Resolution } from 'get-screen-resolution';
@@ -104,7 +110,7 @@ async function main() {
   // if resolution isn't provided as option =>
   // fetch the screen's resolution and cache that value to disk if needed when program is ran again
   let resolution;
-  const RESOLUTION_CACHE_FILE = 'resolution.txt';
+  const RESOLUTION_CACHE_FILE = join(import.meta.dirname, 'resolution.txt');
   if (resolutionArgument) {
     resolution = resolutionArgument;
   } else if (existsSync(RESOLUTION_CACHE_FILE)) {
@@ -189,7 +195,10 @@ async function fetchAndSetWallpaper(queries: string[], resolution: Resolution) {
   // download the image to disk from its url => set desktop wallpaper using it
   const imageResponse = (await fetch(imageUrl)) as any;
   checkTooManyRequestsResponse(imageResponse);
-  const wallpaperPath = `./wallpaper${extname(imageUrl)}`;
+  const wallpaperPath = join(
+    import.meta.dirname,
+    `wallpaper${extname(imageUrl)}`,
+  );
   const fileStream = createWriteStream(wallpaperPath);
   imageResponse.body.pipe(fileStream);
   fileStream.on('finish', async () => {
