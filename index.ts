@@ -118,7 +118,7 @@ async function main() {
   } else {
     try {
       const fetchedResolution = await getResolution();
-      writeFileSync('resolution.txt', JSON.stringify(fetchedResolution));
+      writeFileSync(RESOLUTION_CACHE_FILE, JSON.stringify(fetchedResolution));
       resolution = fetchedResolution;
     } catch (err) {
       return errorAndExit(
